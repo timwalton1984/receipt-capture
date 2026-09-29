@@ -10,6 +10,15 @@
 <p>Signing in…</p>
 <script src="lib/msal-redirect-bridge.min.js"></script>
 <script>
+  // If Android finished the sign-in in a separate tab, restore the sign-in state saved by the app before it left
+  (function () {
+    try {
+      if (sessionStorage.getItem("msal.interaction.status")) return;
+      var s = JSON.parse(localStorage.getItem("rc.signin") || "null");
+      if (!s || Date.now() - s.t > 15 * 60 * 1000) return;
+      Object.keys(s.keep).forEach(function (k) { sessionStorage.setItem(k, s.keep[k]); });
+    } catch (e) {}
+  })();
   msalRedirectBridge.broadcastResponseToMainFrame().catch(function (e) {
     document.body.innerHTML = '<p>Sign-in error: ' + (e && e.message ? e.message : e) + '</p><p><a style="color:#6cf" href="./">Back to app</a></p>';
   });

@@ -57,7 +57,8 @@
     }
     const base = location.origin + location.pathname.replace(/[^/]*$/, "");
     pca = new msal.PublicClientApplication({
-      auth: { clientId: CFG.clientId, authority: "https://login.microsoftonline.com/" + CFG.tenantId, redirectUri: base + "redirect.html" },
+      auth: { clientId: CFG.clientId, authority: "https://login.microsoftonline.com/" + CFG.tenantId, redirectUri: base + "redirect.html",
+              onRedirectNavigate: () => { saveSignInState(); return true; } },
       cache: { cacheLocation: "localStorage" }
     });
     await pca.initialize();
@@ -65,11 +66,30 @@
       const r = await pca.handleRedirectPromise();
       if (r && r.account) pca.setActiveAccount(r.account);
     } catch (e) { setMsg("Sign-in error: " + (e.message || e), "err"); }
+    try { localStorage.removeItem("rc.signin"); } catch (_) {}
     account = pca.getActiveAccount() || pca.getAllAccounts()[0] || null;
     if (account) pca.setActiveAccount(account);
     renderAccount();
   }
-  function signIn() { if (pca) pca.loginRedirect({ scopes: SCOPES, prompt: "select_account" }); }
+  // Android can finish the Microsoft sign-in in a separate browser tab, which has none of this tab's sign-in state.
+  // Keep a short-lived copy so redirect.html can finish the sign-in wherever it lands.
+  function saveSignInState() {
+    try {
+      const keep = {};
+      for (let i = 0; i < sessionStorage.length; i++) { const k = sessionStorage.key(i); if (k && k.indexOf("msal.") === 0) keep[k] = sessionStorage.getItem(k); }
+      localStorage.setItem("rc.signin", JSON.stringify({ t: Date.now(), keep }));
+    } catch (_) {}
+  }
+  function signIn() {
+    if (!pca) return;
+    pca.loginRedirect({ scopes: SCOPES, prompt: "select_account" }).catch((e) => setMsg("Sign-in error: " + (e.message || e), "err"));
+  }
+  // Pick up a sign-in that finished in another tab (tokens are shared through localStorage)
+  function recheckAccount() {
+    if (!pca || (account && !needLogin)) return;
+    const a = pca.getActiveAccount() || pca.getAllAccounts()[0] || null;
+    if (a) { account = a; pca.setActiveAccount(a); needLogin = false; renderAccount(); processQueue(); }
+  }
   function renderAccount() {
     const el = $("account");
     el.innerHTML = "";
@@ -252,9 +272,11 @@
   }
   function freshFix() {
     if (fix && Date.now() - fix.time < 120000) return Promise.resolve(fix);
+    // Hard 12 s limit: getCurrentPosition never answers while a location prompt is left open, which used to hang "Stamping photo"
     return new Promise((res) => {
       if (!("geolocation" in navigator)) return res(fix);
-      navigator.geolocation.getCurrentPosition((p) => { onPos(p); res(fix); }, () => res(fix), { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 });
+      const t = setTimeout(() => res(fix), 12000);
+      navigator.geolocation.getCurrentPosition((p) => { clearTimeout(t); onPos(p); res(fix); }, () => { clearTimeout(t); res(fix); }, { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 });
     });
   }
   async function placeName(f) {
@@ -359,7 +381,7 @@
     $("file").onchange = (e) => onPhoto(e.target.files[0]);
     $("retry").onclick = () => processQueue();
     window.addEventListener("online", () => processQueue());
-    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") processQueue(); });
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { recheckAccount(); processQueue(); } });
     setInterval(() => processQueue(), 60000);
     gpsStatus(); startGps();
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});

@@ -1,5 +1,5 @@
 // Offline shell for Receipt Capture. Network first so updates on GitHub arrive straight away; cache used when offline.
-const CACHE = "receipt-capture-v1";
+const CACHE = "receipt-capture-v2";
 const SHELL = ["./", "index.html", "app.js", "config.js", "redirect.html", "manifest.webmanifest",
   "lib/msal-browser.min.js", "lib/msal-redirect-bridge.min.js", "lib/piexif.js",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-512-maskable.png"];
