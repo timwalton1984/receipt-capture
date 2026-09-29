@@ -83,6 +83,7 @@
       const keep = {};
       for (let i = 0; i < sessionStorage.length; i++) { const k = sessionStorage.key(i); if (k && k.indexOf("msal.") === 0) keep[k] = sessionStorage.getItem(k); }
       localStorage.setItem("rc.signin", JSON.stringify({ t: Date.now(), keep }));
+      sessionStorage.setItem("rc.pending", "1");
     } catch (_) {}
   }
   function signIn() {
@@ -93,7 +94,11 @@
   function recheckAccount() {
     if (!pca || (account && !needLogin)) return;
     const a = pca.getActiveAccount() || pca.getAllAccounts()[0] || null;
-    if (a) { account = a; pca.setActiveAccount(a); needLogin = false; renderAccount(); processQueue(); }
+    if (a) { account = a; pca.setActiveAccount(a); needLogin = false; renderAccount(); processQueue(); return; }
+    // Sign-in was finished in another tab (it clears rc.signin): reload so this copy of the app loads the new sign-in
+    try {
+      if (sessionStorage.getItem("rc.pending") && !localStorage.getItem("rc.signin")) { sessionStorage.removeItem("rc.pending"); location.reload(); }
+    } catch (_) {}
   }
   function renderAccount() {
     const el = $("account");
