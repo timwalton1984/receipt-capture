@@ -64,7 +64,12 @@
     await pca.initialize();
     try {
       const r = await pca.handleRedirectPromise();
-      if (r && r.account) pca.setActiveAccount(r.account);
+      if (r && r.account) {
+        pca.setActiveAccount(r.account);
+        // Android finished sign-in in a browser tab rather than the installed app: tell Tim to close it
+        if (sessionStorage.getItem("rc.restored") && !sessionStorage.removeItem("rc.restored"))
+          setMsg("Signed in. If you opened the app from your home screen, tap X at the top to close this page and go back to it.", "ok");
+      }
     } catch (e) { setMsg("Sign-in error: " + (e.message || e), "err"); }
     try { localStorage.removeItem("rc.signin"); } catch (_) {}
     account = pca.getActiveAccount() || pca.getAllAccounts()[0] || null;
@@ -388,6 +393,7 @@
     if ("serviceWorker" in navigator && !TEST) navigator.serviceWorker.register("sw.js").catch(() => {});
     await renderQueue();
     await initAuth();
+    if (/signin=lost/.test(location.search) && !account) setMsg("Sign-in didn't come back to the app. Tap Sign in again.", "err");
     if (account) processQueue();
   }
   window.ReceiptApp = { folderFor, processQueue, onPhoto, qAll, cacheClear };

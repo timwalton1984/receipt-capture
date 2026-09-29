@@ -17,8 +17,16 @@
       var s = JSON.parse(localStorage.getItem("rc.signin") || "null");
       if (!s || Date.now() - s.t > 15 * 60 * 1000) return;
       Object.keys(s.keep).forEach(function (k) { sessionStorage.setItem(k, s.keep[k]); });
+      sessionStorage.setItem("rc.restored", "1");
     } catch (e) {}
   })();
+  // Never fall back to the site root (404): if no sign-in state could be found, go back to the app instead
+  try {
+    if (!sessionStorage.getItem("msal.interaction.status") && /[#&?]state=/.test(location.href)) {
+      var st = JSON.parse(atob(decodeURIComponent((location.hash + location.search).match(/state=([^&]+)/)[1]).split("|")[0].replace(/-/g, "+").replace(/_/g, "/")));
+      if (st && st.meta && st.meta.interactionType === "redirect") { location.replace("./?signin=lost"); throw 0; }
+    }
+  } catch (e) { if (e === 0) throw e; }
   msalRedirectBridge.broadcastResponseToMainFrame().catch(function (e) {
     document.body.innerHTML = '<p>Sign-in error: ' + (e && e.message ? e.message : e) + '</p><p><a style="color:#6cf" href="./">Back to app</a></p>';
   });
