@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signing in</title>
+<style>body{font-family:system-ui,sans-serif;background:#111;color:#eee;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}</style>
+</head>
+<body>
+<p>Signing in…</p>
+<script src="lib/msal-redirect-bridge.min.js"></script>
+<script>
+  msalRedirectBridge.broadcastResponseToMainFrame().catch(function (e) {
+    document.body.innerHTML = '<p>Sign-in error: ' + (e && e.message ? e.message : e) + '</p><p><a style="color:#6cf" href="./">Back to app</a></p>';
+  });
+</script>
+</body>
+</html>
